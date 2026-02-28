@@ -1,0 +1,156 @@
+# llm.yaml
+
+# -----------------------------------------------------------------------------
+# 默认路由策略 (Defaults)
+# 对应 backend.core.schemas.Component 枚举
+# 格式: "{provider_id}/{model_id}"
+# -----------------------------------------------------------------------------
+defaults:
+  butler: "qwen/qwen-plus"      # 负责意图澄清，需要快且便宜
+  solver: "qwen/qwen-plus"          # 负责任务拆解，需要高智商
+  worker: "qwen/qwen-plus"   # 默认执行工，如果不指定特定 skill
+  auditor: "moonshot/kimi-k2.5"
+
+# -----------------------------------------------------------------------------
+# 供应商与模型池 (Providers & Models)
+# -----------------------------------------------------------------------------
+providers:
+  # 平台1：(示例)
+  moonshot:
+    base_url: "https://api.moonshot.cn/v1"
+    api_key: "ENV:kimi_key" 
+    api_type: "openai-completions"  # 接口协议
+    
+    models:
+      - id: "kimi-k2.5"
+        description: ""
+        enabled: true
+        
+        # 对应 readme 中的“定级”，用于调度算法选择
+        capability_score: 4  
+        reasoning: false
+        
+        # 支持的模态：text, image, function_call
+        features: ["text", "tool_use"] 
+        
+        # 资源层必须的硬指标
+        context_window: 200000
+        max_tokens: 4096
+        
+        # 成本（人民币）
+        cost:
+          input_1m: 4
+          output_1m: 21
+
+  qwen:
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key: "ENV:qwen_key" 
+    api_type: "openai-completions"  # 接口协议
+    
+    models:
+      - id: "qwen-plus"
+        description: "适合简单任务"
+        enabled: true
+        
+        # 对应 readme 中的“定级”，用于调度算法选择
+        capability_score: 2.5  
+        reasoning: false
+        
+        # 支持的模态：text, image, function_call
+        features: ["text", "tool_use"] 
+        
+        # 资源层必须的硬指标
+        context_window: 1000000
+        max_tokens: 32768
+        
+        # 成本（人民币）
+        cost:
+          input_1m: 0.8
+          output_1m: 2
+
+      - id: "qwen3-max"
+        description: ""
+        enabled: true
+        
+        # 对应 readme 中的“定级”，用于调度算法选择
+        capability_score: 3  
+        reasoning: false
+        
+        # 支持的模态：text, image, function_call
+        features: ["text", "tool_use"] 
+        
+        # 资源层必须的硬指标
+        context_window: 1000000
+        max_tokens: 32768
+        
+        # 成本（人民币）
+        cost:
+          input_1m: 2.5
+          output_1m: 10
+
+  aihubmix:
+    base_url: "https://aihubmix.com/v1"
+    api_key: "ENV:aihubmix_key" 
+    api_type: "openai-completions"  # 接口协议
+    headers: {"APP-Code": "KLTM6391"}
+    
+    models:
+      - id: "claude-haiku-4-5"
+        description: ""
+        enabled: true
+        
+        # 对应 readme 中的“定级”，用于调度算法选择
+        capability_score: 4.5 
+        reasoning: false
+        
+        # 支持的模态：text, image, function_call
+        features: ["text", "tool_use"] 
+        
+        # 资源层必须的硬指标
+        context_window: 1000000
+        max_tokens: 32768
+        
+        # 成本（人民币）
+        cost:
+          input_1m: 7.6
+          output_1m: 38
+
+      - id: "gpt-4.1-free"
+        description: "免费！"
+        enabled: true
+        
+        # 对应 readme 中的“定级”，用于调度算法选择
+        capability_score: 4  
+        reasoning: false
+        
+        # 支持的模态：text, image, function_call
+        features: ["text", "tool_use"] 
+        
+        # 资源层必须的硬指标
+        context_window: 1000000
+        max_tokens: 32768
+        
+        # 成本（人民币）
+        cost:
+          input_1m: 0
+          output_1m: 0
+
+      - id: "gemini-3-flash-preview"
+        description: ""
+        enabled: true
+        
+        # 对应 readme 中的“定级”，用于调度算法选择
+        capability_score: 4.5  
+        reasoning: false
+        
+        # 支持的模态：text, image, function_call
+        features: ["text", "tool_use"] 
+        
+        # 资源层必须的硬指标
+        context_window: 1000000
+        max_tokens: 32768
+        
+        # 成本（人民币）
+        cost:
+          input_1m: 3.5
+          output_1m: 21

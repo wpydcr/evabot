@@ -195,7 +195,7 @@ class SolverService():
                     )
                     ctx.add_packet(tool_ack_msg)
                     
-                elif tool_name in need_tools:
+                else:
                     start_ts = time.time()
                     result = execute_tool(tool_name, args_dict)
                     duration_s = round(time.time() - start_ts, 2)
@@ -210,8 +210,6 @@ class SolverService():
                     )
                     ctx.add_packet(tool_message)
                     self.run_loop(ctx)  # 执行完工具后继续循环，等待新的 tool_calls 或者任务结束信号
-                else:
-                    log_event(logger, "UNKNOWN_TOOL_CALL", tool_name=tool_name, level=40)
 
             if heart_content:
                 self.gateway.task_manager.update_node_status(ctx.owner_id, NodeStatus.WAITING)
@@ -229,7 +227,7 @@ class SolverService():
             final_msg = Message(
                 sender_id=ctx.owner_id,
                 sender=Component.SOLVER,
-                send_type=SendType.UPWARD,
+                send_type=SendType.USER,
                 content=f'【系统通知：任务已结束】\n{resp.content.strip()}',
                 message_type=MessageType.REPORT
             )

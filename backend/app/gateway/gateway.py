@@ -31,6 +31,27 @@ class InMemoryContextStore:
     _lock: threading.RLock = field(default_factory=threading.RLock)
     task_manager: TaskManager = None # 需要注入以解析 work_id 到 solve_id 的映射
 
+    def __post_init__(self):
+        self._load_all_memories()
+
+    def _load_all_memories(self):
+        """启动时全量加载历史记忆文件到内存（全局单一记忆文件）"""
+        memory_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../memory'))
+        file_path = os.path.join(memory_dir, "butler.json")
+        
+        if not os.path.exists(file_path):
+            return
+            
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ctx = Context.model_validate(data)
+                with self._lock:
+                    # 对于 BUTLER，在内存中统一使用空字符串 "" 作为存储键
+                    self.store[(Component.BUTLER, "")] = ctx
+        except Exception as e:
+            get_logger("gateway").error(f"Failed to load memory {file_path}: {e}")
+
     def _get_effective_owner(self, owner: Component) -> Component:
         """核心修复：USER 和 BUTLER 逻辑上是同一个会话实体，强行合并缓存键"""
         if owner == Component.USER:
@@ -44,9 +65,9 @@ class InMemoryContextStore:
         memory_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../memory'))
 
         if owner == Component.BUTLER:
-            # 交互上下文落到 memory
+            # 交互上下文全局唯一，忽略 context_id
             os.makedirs(memory_dir, exist_ok=True)
-            return os.path.join(memory_dir, f"butler_{context_id}.json")
+            return os.path.join(memory_dir, "butler.json")
             
         elif owner == Component.SOLVER:
             # Solver上下文
@@ -79,9 +100,16 @@ class InMemoryContextStore:
         if not context_id:
             return None
             
+        # 映射键值：如果是 BUTLER，强制查询空字符串键 ""
+        store_key_id = "" if owner == Component.BUTLER else context_id
+
         with self._lock:
-            if (owner, context_id) in self.store:
-                return self.store[(owner, context_id)]
+            if (owner, store_key_id) in self.store:
+                ctx = self.store[(owner, store_key_id)]
+                # 动态把网关传来的 context_id 挂载给全局 ctx，保证消息能被正确路由回当前前端
+                if owner == Component.BUTLER:
+                    ctx.owner_id = context_id
+                return ctx
             
             file_path = self._get_file_path(owner, context_id)
             if os.path.exists(file_path):
@@ -89,7 +117,11 @@ class InMemoryContextStore:
                     with open(file_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         ctx = Context.model_validate(data)
-                        self.store[(owner, context_id)] = ctx
+                        
+                        if owner == Component.BUTLER:
+                            ctx.owner_id = context_id
+                            
+                        self.store[(owner, store_key_id)] = ctx
                         return ctx
                 except Exception as e:
                     get_logger("gateway").error(f"Failed to load context from {file_path}: {e}")
@@ -99,8 +131,11 @@ class InMemoryContextStore:
     def set(self, owner: Component, ctx: Context, context_id: str) -> None:
         owner = self._get_effective_owner(owner)
         if context_id:
+            # 映射键值：如果是 BUTLER，强制存入空字符串键 ""
+            store_key_id = "" if owner == Component.BUTLER else context_id
+            
             with self._lock:
-                self.store[(owner, context_id)] = ctx
+                self.store[(owner, store_key_id)] = ctx
             try:
                 file_path = self._get_file_path(owner, context_id)
                 ctx.work_dir = os.path.dirname(file_path)
@@ -115,8 +150,11 @@ class InMemoryContextStore:
         if not context_id:
             return False
             
+        # 映射键值：如果是 BUTLER，强制查询空字符串键 ""
+        store_key_id = "" if owner == Component.BUTLER else context_id
+        
         with self._lock:
-            if (owner, context_id) in self.store:
+            if (owner, store_key_id) in self.store:
                 return True
             file_path = self._get_file_path(owner, context_id)
             return os.path.exists(file_path)

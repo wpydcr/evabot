@@ -19,7 +19,7 @@ class TaskManager:
         self._lock = threading.RLock()
         
         # Workspace中的solver文件夹路径
-        self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../workspace'))
+        self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../workspace'))
         os.makedirs(self.base_dir, exist_ok=True)
         self._load_all_tasks()
 

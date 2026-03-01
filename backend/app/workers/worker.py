@@ -214,7 +214,6 @@ class WorkerService():
                                     tool_call_id=tool_call_id                                    
                                 )
                                 ctx.add_packet(retry_msg)
-                                
                         else:
                             start_ts = time.time()
                             result = execute_tool(tool_name, args_dict)

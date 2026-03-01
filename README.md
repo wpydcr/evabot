@@ -110,10 +110,22 @@ set qwen_key="your_qwen_api_key_here"
 set kimi_key="your_moonshot_api_key_here"
 ```
 
-### 3. Launch
+### 2. Launch
 ```bash
 python run.py
 ```
+
+<table>
+  <tr>
+    <th align="center">Chat Task</th>
+    <th align="center">LLM Config</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="./fig/task.png" height="400"></td>
+    <td align="center"><img src="./fig/llm.png" height="400"></td>
+  </tr>
+</table>
+
 ---
 
 ## Architecture
@@ -169,7 +181,8 @@ run.py                      # System startup entry
 ---
 
 ## 🗺️ Roadmap
-- [ ] Frontend UI
+- [x] Base Framework
+- [x] Frontend UI
 - [ ] Scheduled Tasks
 - [ ] Multi-channel Messaging Support
 - [ ] Multimodal Support

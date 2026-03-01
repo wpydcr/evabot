@@ -21,7 +21,7 @@ class SolverTrigger(BaseModel):
     auth_level: AuthLevel = Field(default=AuthLevel.SMART)
 
 def get_solver_tool_schema():
-    return {
+    return [{
         "type": "function",
         "function": {
             "name": "call_solver",
@@ -43,4 +43,19 @@ def get_solver_tool_schema():
                 "required": ["intent"]
             }
         }
+    },
+    {
+    "type": "function",
+    "function": {
+        "name": "edit_file",
+        "description": "change our soul.md file content",
+        "parameters": {
+        "type": "object",
+        "properties": {
+            "old_text": {"type": "string", "description": "The exact text to find and replace"},
+            "new_text": {"type": "string", "description": "The text to replace with"}
+        },
+        "required": ["old_text", "new_text"]
     }
+    }
+}]

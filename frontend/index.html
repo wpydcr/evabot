@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvaBot 控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .modal-enter-active, .modal-leave-active { transition: opacity 0.3s; }
+        .modal-enter-from, .modal-leave-to { opacity: 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 h-screen overflow-hidden">
+    <div id="app" class="flex h-full">
+        <div class="w-64 bg-gray-900 text-white flex flex-col">
+            <div class="p-6 text-2xl font-bold border-b border-gray-800">🤖 EvaBot</div>
+            <nav class="flex-1 p-4 space-y-2">
+                <button @click="currentTab = 'chat'" :class="{'bg-blue-600': currentTab === 'chat', 'hover:bg-gray-800': currentTab !== 'chat'}" class="w-full text-left px-4 py-3 rounded-lg transition">
+                    💬 聊天与任务
+                </button>
+                <button @click="currentTab = 'config'" :class="{'bg-blue-600': currentTab === 'config', 'hover:bg-gray-800': currentTab !== 'config'}" class="w-full text-left px-4 py-3 rounded-lg transition">
+                    ⚙️ 大模型配置
+                </button>
+            </nav>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden relative">
+            <header class="bg-white shadow-sm p-4 flex justify-between items-center z-10">
+                <h1 class="text-xl font-semibold">{{ currentTab === 'chat' ? '实时对话 & 任务拓扑' : '全局大模型路由与资源池' }}</h1>
+                <div class="flex items-center space-x-2 text-sm">
+                    <span class="relative flex h-3 w-3">
+                      <span :class="wsConnected ? 'bg-green-400' : 'bg-red-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+                      <span :class="wsConnected ? 'bg-green-500' : 'bg-red-500'" class="relative inline-flex rounded-full h-3 w-3"></span>
+                    </span>
+                    <span class="text-gray-500">{{ wsConnected ? '已连接系统网关' : '未连接' }}</span>
+                </div>
+            </header>
+
+            <div v-show="currentTab === 'chat'" class="flex-1 flex overflow-hidden">
+                <div class="w-1/3 flex flex-col border-r border-gray-200 bg-white">
+                    <div class="flex-1 p-4 overflow-y-auto space-y-4 no-scrollbar" id="chat-box">
+                        <div v-if="hasMoreMessages" class="text-center mb-2">
+                            <button @click="loadHistory" class="text-xs text-blue-500 hover:text-blue-700 bg-blue-50 px-3 py-1 rounded-full transition">
+                                {{ isLoadingHistory ? '加载中...' : '加载历史消息' }}
+                            </button>
+                        </div>
+                        <div v-for="(msg, index) in messages" :key="index" :class="msg.sender === 'user' ? 'text-right' : 'text-left'">
+                            <div :class="msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'" class="inline-block max-w-[85%] px-4 py-2 rounded-lg shadow-sm text-sm whitespace-pre-wrap text-left">
+                                <div v-if="msg.sender !== 'user'" class="font-bold text-xs mb-1 text-gray-500 uppercase">{{ msg.sender }} <span v-if="msg.message_type === 'heartbeat'">💓</span></div>
+                                {{ msg.content }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 border-t border-gray-100 bg-gray-50">
+                        <div class="flex space-x-2">
+                            <input v-model="inputText" @keyup.enter="sendMessage" type="text" placeholder="输入任务指令..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button @click="sendMessage" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">发送</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-2/3 flex flex-col bg-gray-50">
+                    <div class="h-2/3 p-4">
+                        <div class="bg-white h-full rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                            <div class="px-4 py-2 border-b border-gray-100 font-semibold text-gray-700 flex justify-between items-center">
+                                <span>🌲 当前追踪任务树：{{ activeTaskName || '暂无选中任务' }}</span>
+                                <button @click="fetchTaskTree(activeSolveId)" v-if="activeSolveId" class="text-xs text-blue-500 hover:text-blue-700">手动刷新</button>
+                            </div>
+                            <div id="echarts-container" class="flex-1 w-full h-full"></div>
+                        </div>
+                    </div>
+                    <div class="h-1/3 p-4 pt-0">
+                        <div class="bg-white h-full rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                            <div class="px-4 py-2 border-b border-gray-100 font-semibold text-gray-700 flex justify-between items-center">
+                                <span>📚 历史任务</span>
+                                <button @click="fetchHistoryTasks" class="text-xs bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">刷新</button>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-2 space-y-2 no-scrollbar">
+                                <div v-for="task in historyTasks" :key="task.solve_id" @click="fetchTaskTree(task.solve_id)" 
+                                    :class="activeSolveId === task.solve_id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'"
+                                    class="p-3 border rounded-lg cursor-pointer transition">
+                                    <div class="text-sm font-bold text-gray-800 line-clamp-2" :title="task.goal">{{ task.goal }}</div>
+                                    <div class="text-xs text-gray-400 mt-2 flex justify-between">
+                                        <span>来源: {{ task.channel_id && task.channel_id.includes('web') ? '网页' : task.channel_id }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="historyTasks.length === 0" class="text-center text-gray-400 text-sm mt-4">暂无历史任务</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'config'" class="flex-1 overflow-y-auto p-6 bg-gray-50">
+                <div class="max-w-5xl mx-auto space-y-6">
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h2 class="text-lg font-bold mb-4 border-b pb-2">🎯 默认模型路由 (Defaults)</h2>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div v-for="(modelRef, role) in llmConfig.defaults" :key="role" v-show="['butler', 'solver', 'worker'].includes(role)">
+                                <label class="block text-sm font-semibold text-gray-600 uppercase mb-1">{{ role }}</label>
+                                <div class="flex">
+                                    <input type="text" v-model="llmConfig.defaults[role]" class="flex-1 border border-gray-300 rounded-l-lg px-3 py-1 text-sm outline-none">
+                                    <button @click="updateDefault(role, llmConfig.defaults[role])" class="bg-blue-500 text-white px-3 py-1 rounded-r-lg text-sm hover:bg-blue-600 transition">保存</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+                            <h2 class="text-lg font-bold">🏢 供应商与模型池 (Providers)</h2>
+                            <button @click="openProviderModal()" class="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700 transition">➕ 新增供应商</button>
+                        </div>
+
+                        <div v-for="(provider, pName) in llmConfig.providers" :key="pName" class="mb-6 border border-gray-200 rounded-lg p-4 bg-gray-50 relative group">
+                            <div class="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button @click="openProviderModal(pName, provider)" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-200">编辑</button>
+                                <button @click="deleteProvider(pName)" class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs hover:bg-red-200">删除</button>
+                            </div>
+
+                            <div class="flex justify-between items-center mb-3">
+                                <div>
+                                    <h3 class="text-md font-bold text-blue-800 flex items-center gap-2">
+                                        {{ pName }}
+                                    </h3>
+                                    <div class="text-xs text-gray-500 mt-1">Base URL: {{ provider.base_url }} | API Type: {{ provider.api_type }}</div>
+                                </div>
+                                <button @click="openModelModal(pName)" class="text-sm bg-indigo-100 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-200 transition">➕ 新增模型</button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div v-for="model in provider.models" :key="model.id" class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition relative group/model">
+                                    <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover/model:opacity-100 transition-opacity">
+                                        <button @click="openModelModal(pName, model)" class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] hover:bg-gray-200">编辑</button>
+                                        <button @click="deleteModel(pName, model.id)" class="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[10px] hover:bg-red-100">删除</button>
+                                    </div>
+
+                                    <div class="flex justify-between items-start pr-12">
+                                        <div class="font-bold text-sm truncate" :title="model.id">{{ model.id }}</div>
+                                        <span :class="model.enabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" class="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ml-1">
+                                            {{ model.enabled ? '已启用' : '已禁用' }}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1 h-8 overflow-hidden" :title="model.description">{{ model.description || '无描述' }}</div>
+                                    <div class="mt-2 flex justify-between text-xs text-gray-600 bg-gray-50 p-1 rounded">
+                                        <span>智力评分: <strong class="text-blue-600">{{ model.capability_score }}</strong></span>
+                                        <span title="输入 / 输出 每百万Token成本">¥ {{ model.cost.input_1m }}/{{ model.cost.output_1m }} (1M)</span>
+                                    </div>
+                                </div>
+                                <div v-if="!provider.models || provider.models.length === 0" class="text-sm text-gray-400 py-2">暂无模型配置</div>
+                            </div>
+                        </div>
+                        <div v-if="Object.keys(llmConfig.providers || {}).length === 0" class="text-center text-gray-500 py-8">
+                            暂无供应商，请点击上方按钮新增。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <transition name="modal">
+                <div v-if="showProvModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div class="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 m-4 max-h-[90vh] overflow-y-auto">
+                        <h2 class="text-xl font-bold mb-4">{{ isEditProv ? '编辑' : '新增' }}供应商</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">标识名 (Provider ID)</label>
+                                <input v-model="provForm.name" :disabled="isEditProv" type="text" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" placeholder="例如: openai, moonshot">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                                <input v-model="provForm.config.base_url" type="text" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                <input v-model="provForm.config.api_key" type="text" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="支持纯文本 或 ENV:变量名">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">API Type</label>
+                                <select v-model="provForm.config.api_type" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="openai-completions">OpenAI 兼容协议</option>
+                                    <option value="anthropic">Anthropic (如果后端已实现)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button @click="showProvModal = false" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">取消</button>
+                            <button @click="saveProvider" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <transition name="modal">
+                <div v-if="showModelModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div class="bg-white rounded-xl shadow-lg w-full max-w-xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+                        <h2 class="text-xl font-bold mb-4">{{ isEditModel ? '编辑' : '新增' }}模型 <span class="text-sm font-normal text-gray-500">(@{{ currentProvForModel }})</span></h2>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">模型 ID</label>
+                                    <input v-model="modelForm.id" :disabled="isEditModel" type="text" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" placeholder="如: gpt-4o">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                                    <div class="flex items-center mt-2">
+                                        <input v-model="modelForm.enabled" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                        <label class="ml-2 block text-sm text-gray-900">启用该模型</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">描述 (Description)</label>
+                                <textarea v-model="modelForm.description" rows="2" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">能力评分 (1-5)</label>
+                                    <input v-model.number="modelForm.capability_score" type="number" step="0.1" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">最大上下文</label>
+                                    <input v-model.number="modelForm.context_window" type="number" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">最大输出 Token</label>
+                                    <input v-model.number="modelForm.max_tokens" type="number" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 border-t border-gray-100 pt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">输入成本 (¥/1M token)</label>
+                                    <input v-model.number="modelForm.cost.input_1m" type="number" step="0.001" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">输出成本 (¥/1M token)</label>
+                                    <input v-model.number="modelForm.cost.output_1m" type="number" step="0.001" class="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div class="border-t border-gray-100 pt-4 flex items-center">
+                                <input v-model="modelForm.reasoning" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label class="ml-2 block text-sm text-gray-900">开启推理</label>
+                            </div>
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button @click="showModelModal = false" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">取消</button>
+                            <button @click="saveModel" class="px-4 py-2 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, nextTick, watch, computed } = Vue;
+
+        createApp({
+            setup() {
+                const API_BASE = 'http://127.0.0.1:8000';
+                const channelId = 'web_client_' + Math.floor(Math.random() * 10000);
+                
+                // --- 状态 ---
+                const currentTab = ref('chat');
+                const wsConnected = ref(false);
+                const inputText = ref('');
+                const messages = ref([]);
+                let ws = null;
+                const messageOffset = ref(0);
+                const hasMoreMessages = ref(false);
+                const isLoadingHistory = ref(false);
+                
+                // 任务树
+                const historyTasks = ref([]);
+                const activeSolveId = ref(null);
+                const activeTaskName = computed(() => {
+                    if (!activeSolveId.value) return null;
+                    const task = historyTasks.value.find(t => t.solve_id === activeSolveId.value);
+                    return task ? task.goal : activeSolveId.value; // 查不到就降级显示 ID
+                });
+                let myChart = null;
+
+                // 配置数据
+                const llmConfig = ref({ defaults: {}, providers: {} });
+
+                // Provider 表单状态
+                const showProvModal = ref(false);
+                const isEditProv = ref(false);
+                const provForm = ref({ name: '', config: { base_url: '', api_key: '', api_type: 'openai-completions', models: [] } });
+
+                // Model 表单状态
+                const showModelModal = ref(false);
+                const isEditModel = ref(false);
+                const currentProvForModel = ref('');
+                const defaultModelForm = () => ({
+                    id: '', description: '', enabled: true, capability_score: 1.0, reasoning: false,
+                    features: ['text', 'tool_use'], context_window: 100000, max_tokens: 4096,
+                    cost: { input_1m: 0, output_1m: 0 }
+                });
+                const modelForm = ref(defaultModelForm());
+
+                // ==========================
+                // 1. WebSocket
+                // ==========================
+                const loadHistory = async () => {
+                    if (isLoadingHistory.value) return;
+                    isLoadingHistory.value = true;
+                    try {
+                        const box = document.getElementById('chat-box');
+                        const oldScrollHeight = box ? box.scrollHeight : 0;
+
+                        const res = await axios.get(`${API_BASE}/api/chat/history/${channelId}?offset=${messageOffset.value}&limit=10`);
+                        const { messages: historyMsgs, has_more } = res.data;
+                        
+                        messages.value = [...historyMsgs, ...messages.value];
+                        messageOffset.value += historyMsgs.length;
+                        hasMoreMessages.value = has_more;
+
+                        nextTick(() => {
+                            if (box) {
+                                if (messageOffset.value === historyMsgs.length) {
+                                    box.scrollTop = box.scrollHeight; // 首次加载滚到底部
+                                } else {
+                                    box.scrollTop = box.scrollHeight - oldScrollHeight; // 维持阅读位置
+                                }
+                            }
+                        });
+                    } catch (e) { 
+                        console.error("获取历史记录失败", e); 
+                    } finally {
+                        isLoadingHistory.value = false;
+                    }
+                };
+
+                const initWebSocket = () => {
+                    ws = new WebSocket(`ws://127.0.0.1:8000/ws/chat/${channelId}`);
+                    ws.onopen = () => { wsConnected.value = true; };
+                    ws.onclose = () => { wsConnected.value = false; setTimeout(initWebSocket, 3000); };
+                    ws.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        if (['message', 'report', 'heartbeat'].includes(msg.message_type)) {
+                            messages.value.push(msg);
+                            messageOffset.value += 1;
+                            scrollToBottom();
+                        }
+                        
+                        // 只静默刷新列表与当前激活的树
+                        fetchHistoryTasks().then(() => {
+                            if (activeSolveId.value) {
+                                fetchTaskTree(activeSolveId.value);
+                            }
+                        });
+                    };
+                };
+
+                const sendMessage = () => {
+                    if (!inputText.value.trim() || !wsConnected.value) return;
+                    messages.value.push({ sender: 'user', content: inputText.value });
+                    ws.send(inputText.value);
+                    messageOffset.value += 1;
+                    inputText.value = '';
+                    scrollToBottom();
+                };
+
+                const scrollToBottom = () => {
+                    nextTick(() => {
+                        const box = document.getElementById('chat-box');
+                        if(box) box.scrollTop = box.scrollHeight;
+                    });
+                };
+
+                // ==========================
+                // 2. ECharts 任务树
+                // ==========================
+                const initECharts = () => {
+                    const chartDom = document.getElementById('echarts-container');
+                    if(chartDom) {
+                        myChart = echarts.init(chartDom);
+                        window.addEventListener('resize', () => myChart.resize());
+                    }
+                };
+
+                const fetchHistoryTasks = async () => {
+                    try {
+                        // 追加 _t 强制绕过浏览器 GET 缓存
+                        const res = await axios.get(`${API_BASE}/api/tasks?_t=${Date.now()}`);
+                        historyTasks.value = res.data.tasks;
+                        
+                        // 如果还没选中任务树，且历史记录不为空，默认展示最新的一个
+                        if (!activeSolveId.value && historyTasks.value.length > 0) {
+                            fetchTaskTree(historyTasks.value[0].solve_id);
+                        }
+                    } catch (e) { console.error("获取历史任务失败", e); }
+                };
+
+                const fetchTaskTree = async (solveId) => {
+                    activeSolveId.value = solveId;
+                    try {
+                        const res = await axios.get(`${API_BASE}/api/tasks/${solveId}`);
+                        renderTree(solveId, res.data.nodes);
+                    } catch (e) { console.error("获取任务树失败", e); }
+                };
+
+                const buildTree = (rootId, nodes) => {
+                    const node = nodes.find(n => n.node_id === rootId);
+                    if (!node) return null;
+                    const childrenNodes = nodes.filter(n => n.parent_id === rootId && n.node_id !== rootId);
+                    
+                    let color = '#5470c6'; 
+                    if (node.status === 'completed') color = '#91cc75'; 
+                    if (node.status === 'failed' || node.status === 'error') color = '#ee6666'; 
+                    if (node.status === 'running') color = '#fac858'; 
+
+                    const realChildren = childrenNodes.map(c => buildTree(c.node_id, nodes)).filter(Boolean);
+
+                    return {
+                        name: node.skill_name || 'root',
+                        value: node.goal,
+                        status: node.status,
+                        cost: node.total_cost,
+                        latency: node.total_latency_s,
+                        attempts: node.attempts || [],
+                        itemStyle: { color: color },
+                        children: realChildren
+                    };
+                };
+
+                const renderTree = (rootId, nodes) => {
+                    if (!myChart) return;
+                    const treeData = buildTree(rootId, nodes);
+                    if (!treeData) return;
+
+                    const option = {
+                        tooltip: {
+                            trigger: 'item',
+                            triggerOn: 'mousemove',
+                            enterable: true,
+                            formatter: (params) => {
+                                const d = params.data;
+                                let html = `<div class="max-w-xs whitespace-normal break-words text-sm">
+                                    <b>🛠️ 节点:</b> ${d.name} (${d.status})<br/>
+                                    <b>总耗时:</b> ${d.latency ? d.latency.toFixed(2) : 0} s<br/>
+                                    <b>总花费:</b> ¥${d.cost ? d.cost.toFixed(6) : 0}<br/>
+                                    <hr class="my-1 border-gray-500" />
+                                    <b>任务目标:</b> ${d.value}
+                                </div>`;
+                                
+                                if (d.attempts && d.attempts.length > 0) {
+                                    html += `<hr class="my-1 border-gray-500" /><div class="font-bold text-xs mb-1 text-gray-700">🔄 执行记录:</div>`;
+                                    html += `<div class="max-h-48 overflow-y-auto pr-1 no-scrollbar">`; 
+                                    d.attempts.forEach((attempt, idx) => {
+                                        const cost = attempt.cost ? attempt.cost.toFixed(6) : 0;
+                                        const latency = attempt.latency_s ? attempt.latency_s.toFixed(2) : 0;
+                                        const status = attempt.status || 'running';
+                                        const feedback = attempt.audit_feedback || '无/执行中...';
+                                        html += `<div class="mt-1 p-1.5 bg-gray-50 rounded text-xs border border-gray-200">
+                                            <b>尝试 ${idx + 1}</b> <span class="text-gray-500">(${attempt.model || 'unknown'})</span> - <b>${status}</b><br/>
+                                            <span class="text-gray-500">⏳ ${latency}s | 💰 ¥${cost}</span><br/>
+                                            <span class="text-gray-700 break-words mt-0.5 inline-block">反馈: ${feedback}</span>
+                                        </div>`;
+                                    });
+                                    html += `</div>`;
+                                }
+                                return html;
+                            }
+                        },
+                        series: [{
+                            type: 'tree', data: [treeData],
+                            top: '5%', left: '15%', bottom: '5%', right: '20%',
+                            symbolSize: 14,
+                            label: {
+                                position: 'left', verticalAlign: 'middle', align: 'right',
+                                formatter: (params) => {
+                                    const d = params.data;
+                                    const cost = d.cost ? `¥${d.cost.toFixed(4)}` : '¥0';
+                                    const time = d.latency ? `${d.latency.toFixed(1)}s` : '0s';
+                                    return `{name|${d.name}}\n{meta|⏳ ${time} | 💰 ${cost}}`;
+                                },
+                                rich: { name: { fontSize: 13, color: '#333', fontWeight: 'bold' }, meta: { fontSize: 11, color: '#666', paddingTop: 4 } }
+                            },
+                            leaves: { label: { position: 'right', verticalAlign: 'middle', align: 'left' } },
+                            expandAndCollapse: true, animationDuration: 550, animationDurationUpdate: 750
+                        }]
+                    };
+                    myChart.setOption(option);
+                };
+
+                // ==========================
+                // 3. 大模型配置逻辑
+                // ==========================
+                const fetchConfig = async () => {
+                    try {
+                        const res = await axios.get(`${API_BASE}/api/config/llm`);
+                        llmConfig.value = res.data;
+                    } catch (e) { console.error("获取配置失败", e); }
+                };
+
+                const updateDefault = async (role, modelRef) => {
+                    try {
+                        await axios.post(`${API_BASE}/api/config/llm/default`, { role, llm_ref: modelRef });
+                        alert(`${role} 默认模型已保存`);
+                    } catch (e) { alert("更新失败"); console.error(e); }
+                };
+
+                // --- Provider CRUD ---
+                const openProviderModal = (name = '', configObj = null) => {
+                    isEditProv.value = !!name;
+                    if (configObj) {
+                        provForm.value = { name, config: JSON.parse(JSON.stringify(configObj)) };
+                    } else {
+                        provForm.value = { name: '', config: { base_url: '', api_key: '', api_type: 'openai-completions', models: [] } };
+                    }
+                    showProvModal.value = true;
+                };
+
+                const saveProvider = async () => {
+                    if (!provForm.value.name) return alert("Provider ID 不能为空");
+                    try {
+                        await axios.post(`${API_BASE}/api/config/llm/provider`, {
+                            name: provForm.value.name,
+                            config: provForm.value.config
+                        });
+                        showProvModal.value = false;
+                        fetchConfig();
+                    } catch (e) { alert("保存失败: " + (e.response?.data?.detail || e.message)); }
+                };
+
+                const deleteProvider = async (name) => {
+                    if (!confirm(`确定要删除供应商 [${name}] 及其所有模型吗？`)) return;
+                    try {
+                        await axios.delete(`${API_BASE}/api/config/llm/provider/${name}`);
+                        fetchConfig();
+                    } catch (e) { alert("删除失败"); }
+                };
+
+                // --- Model CRUD ---
+                const openModelModal = (providerName, modelObj = null) => {
+                    currentProvForModel.value = providerName;
+                    isEditModel.value = !!modelObj;
+                    if (modelObj) {
+                        modelForm.value = JSON.parse(JSON.stringify(modelObj));
+                        if (!modelForm.value.cost) modelForm.value.cost = { input_1m: 0, output_1m: 0 };
+                    } else {
+                        modelForm.value = defaultModelForm();
+                    }
+                    showModelModal.value = true;
+                };
+
+                const saveModel = async () => {
+                    if (!modelForm.value.id) return alert("模型 ID 不能为空");
+                    try {
+                        await axios.post(`${API_BASE}/api/config/llm/model`, {
+                            provider_name: currentProvForModel.value,
+                            llm_config: modelForm.value
+                        });
+                        showModelModal.value = false;
+                        fetchConfig();
+                    } catch (e) { alert("保存失败: " + (e.response?.data?.detail || e.message)); }
+                };
+
+                const deleteModel = async (providerName, modelId) => {
+                    if (!confirm(`确定要删除模型 [${modelId}] 吗？`)) return;
+                    try {
+                        await axios.delete(`${API_BASE}/api/config/llm/model/${providerName}/${modelId}`);
+                        fetchConfig();
+                    } catch (e) { alert("删除失败"); }
+                };
+
+                // 生命周期绑定
+                onMounted(() => {
+                    loadHistory();
+                    initWebSocket();
+                    fetchConfig();
+                    setTimeout(() => {
+                        initECharts(); // 先初始化空表盘
+                        fetchHistoryTasks(); // 再去拉取历史任务，拉完后会自动触发第一条任务的画图
+                    }, 500);
+                });
+
+                watch(currentTab, (newVal) => {
+                    if (newVal === 'chat' && myChart) setTimeout(() => myChart.resize(), 100);
+                });
+
+                return {
+                    currentTab, wsConnected, inputText, messages, sendMessage,
+                    historyTasks, activeSolveId, activeTaskName, fetchHistoryTasks, fetchTaskTree,
+                    llmConfig, updateDefault,
+                    // Provider
+                    showProvModal, isEditProv, provForm, openProviderModal, saveProvider, deleteProvider,
+                    // Model
+                    showModelModal, isEditModel, currentProvForModel, modelForm, openModelModal, saveModel, deleteModel,
+
+                    messageOffset, hasMoreMessages, isLoadingHistory, loadHistory
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

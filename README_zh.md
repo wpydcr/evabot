@@ -96,25 +96,23 @@ pip install -r requirements.txt
 ```
 > 建议 **Python 3.12+**
 
-### 2. 配置大模型密钥
-系统已预置 **Qwen（千问）** 和 **Moonshot（Kimi）** 进行层级调度。
-
-任何支持 OpenAI 库调用的模型均可在 `llm.yaml` 中添加。
-```bash
-# Linux / macOS
-export qwen_key="your_qwen_api_key_here"
-export kimi_key="your_moonshot_api_key_here"
-
-# Windows (CMD)
-set qwen_key="your_qwen_api_key_here"
-set kimi_key="your_moonshot_api_key_here"
-```
-
-### 3. 一键启动
+### 2. 一键启动
 
 ```bash
 python run.py
 ```
+
+<table>
+  <tr>
+    <th align="center">聊天页面</th>
+    <th align="center">模型配置页</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="./fig/task.png" height="400"></td>
+    <td align="center"><img src="./fig/llm.png" height="400"></td>
+  </tr>
+</table>
+
 ---
 
 ## 🏗️ 架构
@@ -165,6 +163,7 @@ run.py                      # 系统启动入口
 ```
 
 ## 🗺️ 路线图
+- [x] 基础架构
 - [ ] 前端页面
 - [ ] 定时任务
 - [ ] 多消息渠道支持

@@ -3,4 +3,6 @@ backend/workspace/*
 !backend/workspace/.keep
 backend/logs/*
 !backend/logs/.keep
+backend/memory/*
+!backend/memory/.keep
 .vscode

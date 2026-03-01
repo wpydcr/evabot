@@ -14,7 +14,7 @@ from backend.core.utils import load_prompt, extract_json
 
 logger = get_logger("butler")
 
-need_tools = ['edit_file','communicate_with_downstream']
+need_tools = ['communicate_with_downstream']
 
 class ButlerService:
     def __init__(self, gateway: Gateway):
@@ -25,7 +25,7 @@ class ButlerService:
         self.gateway.register_queue(Component.BUTLER, self.queue)
         
         # 3. 工具集
-        self._tools_schema = [get_solver_tool_schema()] + get_base_tool(need_tools)
+        self._tools_schema = get_solver_tool_schema() + get_base_tool(need_tools)
         
         # 4. 启动消费者线程
         self._workers: List[threading.Thread] = []
@@ -59,7 +59,7 @@ class ButlerService:
                 ctx: Context = self.queue.get()
                 try:
                     self.gateway.start_running(Component.BUTLER, ctx.owner_id)
-                    self._system_prompt = load_prompt(os.path.dirname(__file__),'soul.md')
+                    self._system_prompt = load_prompt(os.path.dirname(__file__),'soul.md',with_path=False)
                     self._process_context(ctx)
                     self.gateway.finish_running(Component.BUTLER, ctx.owner_id, ctx)
                 except Exception as e:
@@ -172,7 +172,9 @@ class ButlerService:
                         message_role=MessageRole.TOOL
                     )
                     ctx.add_packet(tool_ack_msg)
-                elif tool_name in need_tools:
+                else:
+                    if tool_name == 'edit_file':
+                        args_dict["path"] = os.path.join(os.path.dirname(__file__),'soul.md')
                     result = execute_tool(tool_name, args_dict)
                     tool_message = Message(
                         sender=Component.BUTLER,
@@ -184,8 +186,6 @@ class ButlerService:
                         message_role=MessageRole.TOOL
                     )
                     ctx.add_packet(tool_message)
-                else:
-                    log_event(logger, "UNKNOWN_TOOL", tool_name=tool_name, level=40)
 
         # 情况 2: 普通回复 -> 发给 User
         else:

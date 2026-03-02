@@ -77,10 +77,9 @@ class WorkerAuditor:
 
     def calculate_complexity(self, ctx: Context) -> float:
         """评估任务实际难度 (1.0 - 5.0)"""
-        original_intent = ctx.packets[0].content
         # 提取执行轨迹的简要信息
         trace_summary = self.get_context_summary(ctx)
-        prompt = f'【初始任务】：{original_intent}\n【执行轨迹概要】：\n{trace_summary}'
+        prompt = trace_summary
 
         system_prompt = f"""请评估以下任务的实际执行复杂度 (1.0 到 5.0 分)，数值越高表示任务越复杂。
         以你的水平做这个任务，勉强能完成是5.0分。任意一个大模型都可以轻松完成，是1。0分。
@@ -97,17 +96,31 @@ class WorkerAuditor:
 
     def audit_task(self, ctx: Context, res_dict={}) -> dict:
         """核心裁判：评估是否通过及归因"""
-        original_intent = ctx.packets[0].content
+        finally_report = ctx.packets[-1].content if len(ctx.packets) > 1 else ""
         # 提取执行轨迹与是否需要验证
         trace_summary = self.get_context_summary(ctx)
         needs_verification = ctx.packets[0].data.get("needs_verification", False) if ctx.packets[0].data else False
 
-        prompt = f"【任务】：{original_intent}\n【执行轨迹概要】：\n{trace_summary}"
+        prompt = f"【最终汇报】：\n{finally_report}"
+        system_prompt = """你是一个严苛的审计员。判断执行员的【最终汇报】是否承认失败。承认失败 is_passed 是 false，否则为 true。请严格返回 JSON 格式： {"is_passed": true/false}"""
+        
+        if res_dict=={}:
+            eval_ctx = self._create_eval_context(ctx, prompt)
+            resp = call_llm(eval_ctx, system_prompt=system_prompt, json_mode=True)
+            self._record_llm_cost(ctx, resp)
+            
+            audit_result = extract_json(resp.content)
+            # 兼容处理
+            if "is_passed" not in audit_result:
+                return self.audit_task(ctx) # 重新审计一次，给模型一个机会修正格式问题
+        
+        if not res_dict.get("is_passed"):
+            return {"is_passed": False, "have_verified": True}
+        
+        prompt = trace_summary
         system_prompt = """你是一个严苛的审计员。请基于【执行轨迹概要】，判断执行员的【最终汇报】是否来源可靠。
-        如果执行员在最后说任务失败，则不需要审计，直接判定 is_passed 是 false。
         审计规则（幻觉检测）：每一步的信息，必须在执行轨迹中有正确的操作获得。如果信息没有经过正确的工具执行获得，或者工具返回错误或为空，执行员却宣称完成，属于幻觉，is_passed 必须为 false。
         注意：这里我们不判定这些步骤是否必要（即使有些步骤看起来多余或者不合理，只要它们的结果是通过正确的工具调用获得的，就不算幻觉），我们只判定最终汇报的信息是否可靠。
-        特别注意：有些信息是大模型本身就掌握的，不需要通过工具调用获得。你作为最顶级的大模型判定这些信息是否正确，如果不正确或者你无法确认，那就是需要工具执行获得，只有你非常确认时才算认可这种信息来源可靠。
         请严格返回 JSON 格式： {"is_passed": true/false}"""
         
         if res_dict=={}:
@@ -122,7 +135,7 @@ class WorkerAuditor:
         
         res_dict ={'is_passed': audit_result.get("is_passed"), 'have_verified': True}
         if needs_verification and audit_result.get("is_passed"):
-            prompt = f"【任务】：{original_intent}\n【执行轨迹概要】：\n{trace_summary}"
+            prompt = trace_summary
             system_prompt = """你是一个严苛的审计员。请基于【执行轨迹概要】，判断执行员的【最终汇报】是否经过自我验证。
             如果对任务要求的交付物，执行测试/验证，基于正确的工具调用获得了反馈，并且根据反馈才认定的通过，那么就算经过了自我验证，is_passed 才是 true。
             请严格返回 JSON 格式： {"have_verified": true/false}"""
@@ -168,7 +181,8 @@ class WorkerAuditor:
         system_prompt = """你作为失败任务的复盘专家，请分析导致任务失败的具体原因。
         归因原则：
         1. "model": 逻辑混乱、死循环、没理解意图、反复调用错误的参数、幻觉。
-        2. "skill": 缺工具、缺附件、API 不支持该操作、Skill 设计缺失。
+        2. "skill": 缺关键说明、缺附件、API 不支持该操作。
+        **特别注意**：model错误使用skill的情况，归因应该是 model 而不是 skill，因为根本原因是模型没理解好怎么用这个技能，而不是技能本身的问题。
 
         请严格返回 JSON 格式：
         {

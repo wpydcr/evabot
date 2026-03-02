@@ -38,8 +38,8 @@ def _guard_command(command: str, cwd: str) -> str | None:
 def _resolve_path(path: str, allowed_dir: Path | None = None) -> Path:
     """Resolve path and optionally enforce directory restriction."""
     resolved = Path(path).expanduser().resolve()
-    if allowed_dir and not str(resolved).startswith(str(allowed_dir.resolve())):
-        raise PermissionError(f"Path {path} is outside allowed directory {allowed_dir}")
+    # if allowed_dir and not str(resolved).startswith(str(allowed_dir.resolve())):
+    #     raise PermissionError(f"Path {path} is outside allowed directory {allowed_dir}")
     return resolved
 
 def read_pdf(file_path: str) -> str:
@@ -168,7 +168,7 @@ def read_local_file(file_path: str) -> str:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
-            return f"[读取文本文件失败]: {str(e)}"
+            return f"[读取文件失败]: {str(e)}"
 
 # ==========================================
 # 2. 面向对象的工具类封装
@@ -465,6 +465,21 @@ task_tool_schema = [{
                 }
             },
             "required": ["tool_call_id", "provide_info"]
+        }
+    }
+},
+{
+    "type": "function",
+    "function": {
+        "name": "report_deliverable_file",
+        "description": "Report a deliverable file to the upstream and mark the current task as completed. Call this tool ONLY when the task requires delivering a specific file. If no file needs to be delivered, do not call this tool; instead, output your final response directly to complete the task.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "The local path of the deliverable file, which should be an absolute path."},
+                "description": {"type": "string", "description": "A brief description of the file"}
+            },
+            "required": ["file_path", "description"]
         }
     }
 }

@@ -1,6 +1,8 @@
 
 import os
-import json
+import mimetypes
+import platform
+from backend.core.schemas import ArtifactRef
 import queue
 import threading
 import time
@@ -9,16 +11,12 @@ from typing import List
 from backend.core.schemas import Context, Message, Component, MessageRole, MessageType, NodeStatus, SendType, Status
 from backend.llm.llm import call_llm
 from backend.core.log import get_logger, log_event
-from backend.core.utils import extract_json, load_prompt
+from backend.core.utils import extract_json, format_artifacts, load_prompt
 from backend.power.power import PowerManager
-from backend.llm.llm_config import LLMConfig
 from backend.app.gateway.gateway import Gateway
 from backend.core.base_tools import execute_tool, get_base_tool
 
 logger = get_logger("solver.loop")
-
-
-need_tools =['edit_file','communicate_with_downstream', 'communicate_with_upstream', 'use_skill']
 
 class SolverService():
     """
@@ -88,7 +86,9 @@ class SolverService():
         skill_xml_list = self.power.get_main_skill_xml()
         agent_prompt = self.agent_prompt.replace("{{skills}}", str(skill_xml_list))\
                                         .replace("{{intent}}", ctx.packets[0].content)
-        resp = call_llm(ctx, system_prompt=agent_prompt, tools=get_base_tool(need_tools) )
+        os_name = platform.system()
+        system_content = f'当前操作系统为：{os_name} \n 你的**工作区路径**是：{ctx.work_dir} \n\n{agent_prompt}'
+        resp = call_llm(ctx, system_prompt=system_content, tools=get_base_tool() )
         if resp.data:
             cost = resp.data.get("cost", 0.0)
             latency = resp.data.get("latency_s", 0.0)
@@ -103,6 +103,7 @@ class SolverService():
         resp = self.run_init(ctx)
         if resp.data and resp.data.get("tool_calls"):
             heart_content = ''
+            have_artiface = []
             for tc in resp.data["tool_calls"]:
                 func = tc.get("function", {})
                 tool_name = func.get("name")
@@ -194,6 +195,16 @@ class SolverService():
                         message_role=MessageRole.TOOL
                     )
                     ctx.add_packet(tool_ack_msg)
+                elif tool_name == "report_deliverable_file":
+                    file_path = args_dict.get("file_path", "")
+                    description = args_dict.get("description", "")                    
+                    mime_type, _ = mimetypes.guess_type(file_path)
+                    have_artiface.append(ArtifactRef(
+                        uri=file_path,
+                        name=os.path.basename(file_path),
+                        description=description,
+                        mime=mime_type or "application/octet-stream"
+                    )) 
                     
                 else:
                     start_ts = time.time()
@@ -222,6 +233,19 @@ class SolverService():
                 )
                 self.gateway.handle(heart_msg)
 
+            if have_artiface:
+                self.gateway.task_manager.update_node_status(ctx.owner_id, NodeStatus.COMPLETED)
+                final_msg = Message(
+                    sender_id=ctx.owner_id,
+                    sender=Component.SOLVER,
+                    send_type=SendType.USER,
+                    content=f'【系统通知：任务已结束】\n{resp.content.strip()}\n{format_artifacts(have_artiface)}',
+                    message_type=MessageType.REPORT,
+                    artifacts=have_artiface,
+                    tool_call_id=ctx.packets[0].tool_call_id
+                )
+                self.gateway.handle(final_msg)
+
         else:
             self.gateway.task_manager.update_node_status(ctx.owner_id, NodeStatus.COMPLETED)
             final_msg = Message(
@@ -229,6 +253,7 @@ class SolverService():
                 sender=Component.SOLVER,
                 send_type=SendType.USER,
                 content=f'【系统通知：任务已结束】\n{resp.content.strip()}',
-                message_type=MessageType.REPORT
+                message_type=MessageType.REPORT,
+                tool_call_id=ctx.packets[0].tool_call_id
             )
             self.gateway.handle(final_msg)

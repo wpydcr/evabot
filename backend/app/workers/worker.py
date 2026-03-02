@@ -1,4 +1,5 @@
 
+import mimetypes
 import os
 import json
 import queue
@@ -8,10 +9,10 @@ from typing import List
 import platform
 from backend.app.workers.auditor import WorkerAuditor
 from backend.core.base_tools import get_base_tool, execute_tool
-from backend.core.schemas import Context, Message, Component, MessageRole, MessageType, NodeStatus, SendType, Status
+from backend.core.schemas import ArtifactRef, Context, Message, Component, MessageRole, MessageType, NodeStatus, SendType, Status
 from backend.llm.llm import call_llm
 from backend.core.log import get_logger, log_event
-from backend.core.utils import extract_json, load_prompt
+from backend.core.utils import extract_json, format_artifacts, load_prompt
 from backend.power.power import PowerManager
 from backend.app.gateway.gateway import Gateway
 
@@ -111,6 +112,8 @@ class WorkerService():
 
             
                 if resp.data and resp.data.get("tool_calls"):
+                    heart_content=''
+                    have_artiface = []
                     for tc in resp.data["tool_calls"]:
                         func = tc.get("function", {})
                         tool_name = func.get("name")
@@ -119,7 +122,7 @@ class WorkerService():
                         log_event(logger, "TOOL_CALL", tool_name=tool_name, args_str=args_str, level=20)
                         
                         args_dict = extract_json(args_str)
-                        heart_content=''
+                        
                         if tool_name == "use_skill":
                             sub_skill_name = args_dict.get("skill_name")
                             if sub_skill_name==skill_name:
@@ -214,6 +217,16 @@ class WorkerService():
                                     tool_call_id=tool_call_id                                    
                                 )
                                 ctx.add_packet(retry_msg)
+                        elif tool_name == "report_deliverable_file":
+                            file_path = args_dict.get("file_path", "")
+                            description = args_dict.get("description", "")                    
+                            mime_type, _ = mimetypes.guess_type(file_path)
+                            have_artiface.append(ArtifactRef(
+                                uri=file_path,
+                                name=os.path.basename(file_path),
+                                description=description,
+                                mime=mime_type or "application/octet-stream"
+                            )) 
                         else:
                             start_ts = time.time()
                             result = execute_tool(tool_name, args_dict)
@@ -238,6 +251,22 @@ class WorkerService():
                             message_type=MessageType.HEARTBEAT
                         )
                         self.gateway.handle(heart_msg)
+
+                    if have_artiface == []:
+                        self.gateway.task_manager.update_node_status(ctx.owner_id, NodeStatus.COMPLETED)
+                        report = Message(
+                            sender_id=ctx.owner_id,
+                            message_type=MessageType.REPORT,
+                            sender=Component.WORKER,
+                            send_type=SendType.UPWARD,
+                            receiver_id=ctx.packets[0].sender_id,
+                            content=f'【系统通知：任务已结束】\nThe task is :{ctx.packets[0].content}\nthe feedback is:\n{resp.content.strip()}',
+                            tool_call_id=ctx.packets[0].tool_call_id,
+                            artifacts=have_artiface
+                        )
+                        result = self.gateway.handle(report)
+                        return
+
                     if not self.gateway.update_running(Component.WORKER, ctx.owner_id, ctx) or should_wait:
                         self.gateway.task_manager.update_node_status(ctx.owner_id, NodeStatus.WAITING)
                         return

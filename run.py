@@ -11,8 +11,9 @@ from typing import Dict
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 import uvicorn
+from fastapi.staticfiles import StaticFiles
 
 # 将当前根目录加入系统路径，确保能够正确 import backend 包
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -68,6 +69,8 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 app = FastAPI(title="EvaBot", lifespan=lifespan)
+frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -240,6 +243,15 @@ class ModelReq(BaseModel):
 class DefaultReq(BaseModel):
     role: str
     llm_ref: str
+
+@app.get("/api/artifacts")
+def get_artifact(uri: str):
+    """根据 URI 获取并返回附件文件"""
+    if not os.path.exists(uri):
+        raise HTTPException(status_code=404, detail="文件不存在或已被移动")
+    
+    filename = os.path.basename(uri)
+    return FileResponse(path=uri, filename=filename)
 
 @app.get("/api/config/llm")
 def get_llm_config():

@@ -116,8 +116,10 @@ def find_skills_clawhub(query: str, save_dir: str) -> List[Dict]:
                 html_content = page.content()
                 soup = BeautifulSoup(html_content, 'html.parser')
                 skill_rows = soup.find_all('a', class_='skills-row')
-                
+                get_count = 0
                 for row in skill_rows:
+                    if get_count >= 10:
+                        break
                     # ================= 第3层保护：单个技能级别隔离 (防解析报错或 ZIP 下载失败) =================
                     try:
                         href = row.get('href', '')
@@ -148,7 +150,7 @@ def find_skills_clawhub(query: str, save_dir: str) -> List[Dict]:
                         zip_url = f"https://wry-manatee-359.convex.site/api/v1/download?slug={slug}"
                         
                         if download_and_extract_zip(zip_url, dest_folder):
-                            pass
+                            get_count += 1
                         else:
                             continue
                         # ------------------------------------------

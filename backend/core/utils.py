@@ -13,6 +13,7 @@ import json
 from datetime import datetime, timezone
 import os
 import re
+from typing import List
 import uuid
 from hashids import Hashids
 
@@ -73,3 +74,21 @@ def load_prompt(dir, filename: str, with_path: bool = True) -> str:
     else:
         return ""
     return ""
+
+def format_artifacts(artifacts: List) -> str:
+    """
+    将附件列表转化为大模型可读的文本格式
+    :param artifacts: List[ArtifactRef]
+    :return: 格式化后的字符串，如 "路径: 描述\n路径: 描述"
+    """
+    if not artifacts:
+        return ""
+    
+    lines = []
+    for art in artifacts:
+        # 防御性处理，确保没有描述时也有保底文本
+        desc = getattr(art, 'description', None) or "无描述"
+        uri = getattr(art, 'uri', '未知路径')
+        lines.append(f"{uri}: {desc}")
+        
+    return "\n".join(lines)

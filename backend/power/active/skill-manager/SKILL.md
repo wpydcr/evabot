@@ -8,16 +8,20 @@ description: 管理skill功能，包括在线搜索新的skills，应用skill，
 本项目中的 Skill 系统严格遵循“**渐进式披露**”原则，采用树状目录结构进行分类管理。
 - **层级设计**：系统包含有限的核心顶层 Skill，其下挂载特定细分方向的子 Skill，理论上支持无限级向下细分。
 - **功能定位**：上下级 Skill 属于同一功能大类。上级 Skill 侧重于通用性能力，下级 Skill 则专注于解决该大类下的垂直细分场景。
+- **存储方式**：下级Skill文件夹，直接存放在上级Skill文件夹内，当文件夹内存在SKILL.md时，则会判断属于一个Skill文件夹，否则是上级Skill的附件。
 
 ---
 
 # Skill 安全检测
 使用 `use_skill` 工具调用内置的“安全检测 Skill”，发送待检测skill的所有已知信息（**务必**包括skill路径，下载量，来源和skill名）。
-- *注意：安全检测工具每次仅能处理单个 Skill，如有多个目标请并行工具调用。*
+该功能也可以在安全检测的同时，进行简单的Skill判断，例如是否需要配置key，是否免费等
+- 注意：安全检测工具每次仅能处理单个 Skill，如有多个目标请并行工具调用。
+
+---
 
 # 发现新 Skill (Find New Skills)
 
-在 `skills.sh` 和 `ClawHub` 等开源网站上检索所需的 Skill，并将其下载至当前工作区。
+在 `skills.sh` 和 `ClawHub` 上检索所需的 Skill，并将其下载至当前工作区。
 
 **操作说明：**
 使用 Python 运行本目录下的 `search_skills.py` 脚本，注意该脚本位置为**skill路径**下，可以调用工具确认。
@@ -26,35 +30,35 @@ description: 管理skill功能，包括在线搜索新的skills，应用skill，
 
 **执行示例：**
 ```bash
-python search_skills.py --query "Safety" --save_dir "...\workspace\20260101_sess_xxx\010101_solve_xxx\010101_work_xxx\tmp_download_skills"
+python search_skills.py --query "Safety" --save_dir "...\workspace\20260101_sol_xxx\010101_wrk_xxx\tmp_download_skills"
 ```
 
 **后续处理：**
-获取下载列表后，阅读每个 Skill 的 `description`，筛选出符合当前功能需求的 Skill。
+获取下载列表后，阅读每个 Skill 的 `description`，筛选出符合当前功能需求的 Skill。把不需要的或错误的Skill文件夹移入回收站。
 > **注意**：如果未能找到合适的 Skill，或匹配项过少，可能是检索关键词不够准确，请更换关键词后重新执行脚本。
 
 ---
 
 # 应用 Skill (Apply Skill)
 
-在将新模块接入系统前，请先通过 **Find New Skills** 获取一批符合功能需求的 Skill 清单。
-或者用户有指定skill文件。
+在将新模块接入系统前，请先通过 **发现新 Skill** 获取一批符合功能需求的 Skill 清单。
+或者用户有指定skill文件，才可以不去搜索。
 
-### 第一步：安全检测
+### 第一步：Skill安全检测
 
 ### 第二步：功能测试
-- 对通过安全审查且功能匹配的 Skill 进行实机测试，评估其可靠程度与可用性。
+- 对通过安全审查且功能匹配的 Skill 进行测试，评估其可靠程度与可用性。
 
 ### 第三步：整理归档
 - 调用 `get_all_skills` 工具明确当前系统的目录结构。
-- 将测试通过的 Skill 文件夹，移动至对应的上级 Skill 目录下（若已存在相关子分类，则精准归入该细分目录）。
+- 将测试通过的 Skill 文件夹，移动至对应的上级 Skill 目录下（若已存在相关子分类，则把子Skill存入新Skill目录下）。
 - *注意：向系统直接添加新的“顶层 Skill”需要极其慎重，应优先考虑将其作为现有体系的下级节点。*
 
 ---
 
 # 创建 Skill (Create Skill)
 
-从零开发新能力前，建议先通过 **Find New Skills** 与 **安全检测**，获取一批优质开源 Skill 作为参考清单。
+从零开发新能力前，先通过 **Find New Skills** 与 **安全检测**，获取一批优质开源 Skill 作为参考清单。
 
 ### 第一步：参考现有 Skill（可选）
 - 读取安全且功能相关的 `SKILL.md` 文件，学习其详细的 Prompt 编写与工具调用逻辑。若无合适参考，可跳过此步。
@@ -82,7 +86,7 @@ python search_skills.py --query "Safety" --save_dir "...\workspace\20260101_sess
 
 ### 第二步：执行备份（重要）
 - 在修改任何文件前，将本次需要升级的旧版 Skill 文件夹完整复制一份。
-- 将备份移入 `power/archive` 目录,与skill主路径同级，并将文件夹重命名为 `[当前日期]_[Skill名]`。
+- 将备份移入 `power/archive` 目录,本skill的主路径（`power/active/xxx`）同级，并将文件夹重命名为 `[当前日期]_[Skill名]`。
 
 ### 第三步：合并与清理
 - **功能整合**：提取新版本中有价值的功能并合并至当前的 `SKILL.md` 中，同时删除已失效或不稳定的旧内容。
@@ -92,3 +96,9 @@ python search_skills.py --query "Safety" --save_dir "...\workspace\20260101_sess
 ### 第四步：测试验证与回滚
 - 对升级后的 Skill 进行充分测试，评估系统可靠性。
 - *注意：如果在测试中遭遇不可修复的严重 Bug，请立刻提取第二步中的备份文件进行版本回滚。*
+
+---
+
+# 回滚 Skill
+
+如果更新后的skill效果并没有老版本skill效果好，则从历史Skill（`power/active/xxx`）中找回最新日期的Skill对新Skill进行替换。

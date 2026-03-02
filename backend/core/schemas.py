@@ -131,6 +131,7 @@ class Task(_Schema):
 
 class ArtifactRef(_Schema):
     artifact_id: str = Field(default_factory=lambda: gen_id("art_"))
+    description: str | None = Field(default=None)
     name: str | None = Field(default=None)
     uri: str
     mime: str | None = Field(default=None, description="可选：MIME 类型，如 text/plain, application/pdf")

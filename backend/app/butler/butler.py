@@ -101,10 +101,22 @@ class ButlerService:
         
         # 情况 1: 触发工具
         if response_msg.data and response_msg.data.get("tool_calls"):
+            # 看有没有需要给用户说的内容
+            if response_msg.content:
+                user_msg = Message(
+                    message_role=MessageRole.ASSISTANT,
+                    sender=Component.BUTLER,
+                    sender_id=ctx.owner_id,
+                    send_type=SendType.USER,                          
+                    content=response_msg.content,
+                    data=response_msg.data
+                )
+                self.gateway.handle(user_msg)
+            else:
+                ctx.add_packet(response_msg) 
             # 补齐内部流转的必要字段再写入上下文
             response_msg.sender_id = ctx.owner_id
             response_msg.send_type = SendType.SELF
-            ctx.add_packet(response_msg) 
             
             for tc in response_msg.data["tool_calls"]:
                 func = tc.get("function", {})

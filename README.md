@@ -2,7 +2,7 @@
 
 # 🤖 evabot
 
-**The AI agent that manages itself — so you don't have to.**
+**A personal butler — focused on three things: making money, taking notes, and staying social**
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue?style=flat-square&logo=python)](https://python.org)
 [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
@@ -13,78 +13,85 @@
 
 </div>
 
----
 
-## ⚡ The Problem with Most AI Agents
 
-Most agents end up putting the maintenance burden on **you**:
+## 🌟 Project Vision
 
-- You manually manage conversation windows to prevent context from bloating out of control
-- You follow community repos and manually upgrade Skills when better versions appear
-- You pick the right model for each task yourself
-- When the agent starts going off-track, you restart the session and begin again
+### 💰 Making Money
 
-**evabot takes all of this off your plate.**
+You know there are some income streams you could tap into — you just don't have the time to act on them.
 
----
+evabot wraps your logic into Skills and executes them while you sleep:
+until API costs are covered, until you're turning a profit.
 
-## 🌟 How It's Different
+It's not a tool. It's an employee you hired to run your side hustle.
 
-### 🔄 One Conversation. Forever.
 
-Just talk to a single **Butler**. No need to create new sessions, no need to think about context windows. The three-tier architecture (Butler → Solver → Worker) physically isolates task execution from your conversation — the deeper a task runs, the less it affects your chat history. evabot gets smarter over time, not dumber.
 
-### 🧬 Self-Evolution — Three Layers Deep
+### 🗒️ Taking Notes
 
-evabot doesn't just fix errors — it actively evolves its own capabilities:
+You generate a massive amount of information every day, but very little of it ever gets used.
 
-**① Failure-triggered reflection**
-Every failed execution automatically triggers a retrospective. The system identifies where its own logic went wrong and writes the correction back into its configuration. The same mistake won't happen twice.
+evabot weaving your conversations or decisions into a connected web:
+who said what, which tasks are still open — it remembers all of it for you.
 
-**② Proactive Skill acquisition**
-When a Skill needs updating, evabot doesn't wait for the original author to release a new version. It actively searches the open web for all Skills with equivalent functionality, runs safety checks, compares candidates, and applies the best one automatically — no manual community tracking required.
+It surfaces the right information exactly when you need it.
 
-**③ Competitive Skill evolution**
-It doesn't just pick the newest version. The system benchmarks candidates against your specific usage patterns. If none of them fully match your needs, it extracts the best parts from multiple Skills and synthesizes a new one tailored specifically to you.
 
-### 🎯 Smart Model Routing — Cheapest That's Good Enough
 
-evabot doesn't trust benchmarks. A model that scores well on leaderboards doesn't necessarily perform well on *your* specific tasks. Instead:
+### 🤝 Staying Social
 
-- Each model is dynamically scored based on **real task history** and **actual success rates** in your domain
-- Every incoming task is analyzed for difficulty and matched against proven capability profiles
-- The system selects the **cheapest model whose demonstrated ability meets the task requirement** — not the most powerful, not the most expensive, the most appropriate
+The biggest threat to relationships isn't not caring — it's forgetting to care.
 
-### 📡 Full-Chain Context Sync — Tasks Never Go Silent
+evabot tracks what's happening in your important relationships and reminds you in advance who to reach out to and what to pay attention to.
 
-When a sub-task hits a missing parameter mid-execution, the system doesn't guess. It escalates layer by layer — because sometimes not all context is passed down when a task is decomposed. When no layer has the needed information, it surfaces the question all the way to you.
+You'll never lose touch with the people who matter because you were too busy.
 
-Once it has a clear answer, it distributes it back down through every layer before resuming. Tasks never silently drift off-track without your knowledge.
+> The current version has the core architecture in place, with features under active development — feel free to star and follow along.
 
----
+## 👍 Standout Features
 
-## 🔧 Other Core Features
+### 🔄 One Conversation, All the Way Through
 
-<table>
-  <tr>
-    <td>
-      <b>⚖️ Anti-Hallucination Audit</b><br>
-      Every Worker output must be grounded in real tool feedback — no fabrication allowed.
-    </td>
-    <td>
-      <b>🌲 Dynamic Skill Tree</b><br>
-      Skills load only when needed, keeping context lean.
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2">
-      <b>🧠 3000-Line Microkernel</b><br>
-      The core focuses purely on state-machine transitions and system stability. 100% of domain capabilities are externalized as hot-swappable Skills.
-    </td>
-  </tr>
-</table>
+You only need to chat with one **Butler**. No new sessions, no worrying about context windows. A three-layer architecture physically separates task execution from your conversation — the deeper a task goes, the less it affects your chat history. evabot gets smarter the more you use it, not slower.
 
----
+
+### 🧬 Self-Evolution — Three Levels of Growth
+
+evabot doesn't just fix bugs — it actively evolves its own capabilities:
+
+**① Failure-Triggered Reflection**
+Every failed execution automatically triggers a post-mortem. The system identifies the root cause within its own logic and writes the correction back to its configuration. The same mistake is never made twice.
+
+**② Proactive Search for Better Skills**
+When a Skill needs an upgrade, evabot doesn't wait for the original author to push an update. It actively searches the web for all Skills with equivalent functionality, runs them through safety checks, automatically compares them, and applies the best option — no manual community monitoring required.
+
+**③ Competitive Skill Evolution**
+It doesn't just pick the newest version. The system benchmarks candidate Skills against your actual usage patterns. If none of them fully fit your needs, it extracts the best parts from multiple Skills and synthesizes a new one tailored specifically to you.
+
+
+### 🎯 Intelligent Model Routing — The Right Model for Every Task
+evabot doesn't trust leaderboards. A model that scores well on benchmarks doesn't necessarily perform well on *your* specific tasks. Instead, evabot:
+
+- Dynamically scores each model based on **real task history** and **your domain-specific success rates**
+- Assesses the difficulty of each new task and matches it against model capability profiles
+- Selects **the lowest-cost model capable of handling the task** — not the most expensive, not the most powerful, but the most suitable
+
+### 📡 Full-Chain Information Sync — Tasks Never Go Off the Rails
+
+When a subtask stalls mid-execution due to a missing critical parameter, the system doesn't guess. It escalates upward layer by layer — because sometimes task decomposition doesn't carry full context — until the information reaches you if no layer has the answer.
+
+Once the information is confirmed, it propagates back down through every layer, ensuring the full execution chain is properly informed before resuming.
+
+Tasks never silently drift without your knowledge.
+
+
+### ⚖️ Mandatory Anti-Hallucination Audit
+
+Strict auditing enforced: all outputs must be grounded in real tool feedback. Models are not permitted to fabricate results.
+
+
+
 
 ## 🚀 Quick Start
 
@@ -94,31 +101,18 @@ git clone https://github.com/wpydcr/evabot.git
 cd evabot
 pip install -r requirements.txt
 ```
-> Requires **Python 3.12+**
-
-### 2. Configure API Keys
-evabot ships pre-configured for **Qwen** and **Moonshot (Kimi)** for hierarchical scheduling. 
-
-Any OpenAI-compatible model can be added in `llm.yaml`.
-```bash
-# Linux / macOS
-export qwen_key="your_qwen_api_key_here"
-export kimi_key="your_moonshot_api_key_here"
-
-# Windows (CMD)
-set qwen_key="your_qwen_api_key_here"
-set kimi_key="your_moonshot_api_key_here"
-```
+> Recommended: **Python 3.12+**
 
 ### 2. Launch
+
 ```bash
 python run.py
 ```
 
 <table>
   <tr>
-    <th align="center">Chat Task</th>
-    <th align="center">LLM Config</th>
+    <th align="center">Chat Page</th>
+    <th align="center">Model Config Page</th>
   </tr>
   <tr>
     <td align="center"><img src="./fig/task.png" height="400"></td>
@@ -126,68 +120,63 @@ python run.py
   </tr>
 </table>
 
----
 
-## Architecture
+
+## 🏗️ Task Architecture
 ```text
-Channel Adapters  (Terminal / WeChat / Slack / ...)
+Channel Adapters (Terminal / WeChat / Slack / ...)
         │
         ▼
-    Gateway          ← Daemon: routing, queue, heartbeat
+    Gateway          ← Persistent process: routing / queuing / heartbeat push
         │
-        ├──► Butler  ← Your only interface: intent clarification, task dispatch
+        ├──► Butler  ← Your sole conversational interface: intent clarification, task dispatch
         │       │
         │       ▼
-        │    Solver  ← Task decomposition, Skill scheduling, inter-layer comms
+        │    Solver  ← Task decomposition, Skill scheduling, upstream/downstream communication
         │       │
         │       ▼
-        │    Worker  ← Execution loop: Worker + Auditor
+        │    Worker  ← Closed-loop execution: Worker + Auditor audit
         │
-        ├──► Memory  ← Retrieves Butler-layer history only
-        │
-        └──► Storage ← Hot Context + Cold Storage
+        └──► Memory  ← Retrieval-only layer for interaction (Butler) history
 ```
-
-> **The key isolation principle:** each layer only ever sees the *result* from the layer below — never the internal process. This is what keeps your conversation clean no matter how complex the underlying task.
-
-
----
+> **Core Isolation Principle:** Each layer only sees the **results** of the layer below, never its internal process. This is exactly why your conversation stays clean no matter how complex the task gets.
 
 
-## 📁 Project Structure
+## 📁 Directory Structure
 
 ```text
 evabot/
-├── frontend/               # UI  (Planned)
+├── frontend/               # UI
 └── backend/
     ├── app/
-    │   ├── channels/       # Channel adapters (Terminal, messaging platforms...)
-    │   ├── gateway/        # Routing, queue management, daemon process
-    │   ├── butler/         # Intent clarification, chit-chat, task dispatch
-    │   ├── solver/         # Task decomposition, Skill scheduling, inter-layer comms
-    │   └── workers/        # Execution loop + Auditor strict verification
-    ├── core/               # System base utilities
-    ├── power/              # Skill Library
-    │   ├── active/         # Skills currently running in production
-    │   ├── archive/        # Rollback area for version updates
+    │   ├── channels/       # Channel adapters (terminal, messaging platforms, etc.)
+    │   ├── gateway/        # Gateway layer: message routing, queue management, persistent processes
+    │   ├── observer/       # Records and processes the user's day-to-day information
+    │   ├── butler/         # Interaction layer: intent clarification, casual chat, downstream task dispatch
+    │   ├── solver/         # Orchestration layer: task decomposition, Skill scheduling, upstream/downstream communication
+    │   └── workers/        # Execution layer: Worker execution engine + strict Auditor
+    ├── core/               # System-level utility tools
+    ├── power/              # Skill library
+    │   ├── active/         # Skills running in production
+    │   ├── archive/        # Version rollback area
     │   └── power.py        # Skill tree parser and manager
-    ├── logs/               # Runtime log archives
-    ├── memory/             # History storage, update & retrieval
-    ├── llm/                # LLM configuration (llm.yaml)
-    └── workspace/          # Isolated sandboxes
-run.py                      # System startup entry
+    ├── logs/               # System runtime log archive
+    ├── memory/             # Memory layer: history storage, updates, and retrieval
+    ├── llm/                # LLM configuration file (llm.yaml)
+    └── workspace/          # Isolated workspace
+run.py                      # System entry point
+
 ```
 
----
-
 ## 🗺️ Roadmap
-- [x] Base Framework
+- [x] Core architecture
 - [x] Frontend UI
-- [ ] Scheduled Tasks
-- [ ] Multi-channel Messaging Support
-- [ ] Multimodal Support
+- [ ] Scheduled tasks
+- [ ] Daily information recording/processing (Notes)
+- [ ] Computer operation (Money)
+- [ ] Multi-channel messaging support (Social)
+- [ ] Multimodal support
 
-> External tools or MCP will not be supported and must be used wrapped in a skill.
 
 ## ⭐ Star
 
@@ -202,11 +191,11 @@ run.py                      # System startup entry
 </div>
 
 <p align="center">
-  <em> Thanks for visiting ✨ evabot!</em><br><br>
+  <em>Thanks for visiting ✨ evabot!</em><br><br>
   <img src="https://visitor-badge.laobi.icu/badge?page_id=wpydcr.evabot&style=for-the-badge&color=00d4ff" alt="Views">
 </p>
 
 
 <p align="center">
-  <sub>evabot is for educational, research, and technical exchange purposes only</sub>
+  <sub>evabot is intended for educational, research, and technical exchange purposes only.</sub>
 </p>
